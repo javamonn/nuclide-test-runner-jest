@@ -1,7 +1,7 @@
 {
   "name": "nuclide-test-runner-jest",
   "main": "./JestTestRunner.js",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "Jest Test Runner for nuclide-test-runner",
   "keywords": [
     "Jest",
@@ -10,6 +10,7 @@
     "Nuclide",
     "JavaScript"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git://github.com/JosePedroDias/nuclide-test-runner-jest.git"
