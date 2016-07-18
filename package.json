@@ -1,7 +1,7 @@
 {
   "name": "nuclide-test-runner-jest",
   "main": "./JestTestRunner.js",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Jest Test Runner for nuclide-test-runner",
   "keywords": [
     "Jest",
@@ -16,9 +16,9 @@
     "url": "git://github.com/JosePedroDias/nuclide-test-runner-jest.git"
   },
   "author": {
-    "name" : "José Pedro Dias",
-    "email" : "jose.pedro.dias@gmail.com",
-    "url" : "http://josepedrodias.com/"
+    "name": "José Pedro Dias",
+    "email": "jose.pedro.dias@gmail.com",
+    "url": "http://josepedrodias.com/"
   },
   "providedServices": {
     "nuclide-test-runner.provider": {

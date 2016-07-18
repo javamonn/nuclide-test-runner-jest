@@ -14,6 +14,12 @@ This helped a bit <https://github.com/facebook/nuclide/blob/v0.0.32/pkg/nuclide/
 It kinda works already though.
 
 
+## How to install
+
+Install it in atom. It's called `nuclide-test-runner-jest` there.
+You can also do it in the console if you prefer `apm install nuclide-test-runner-jest`.
+
+
 
 ## TODO
 
