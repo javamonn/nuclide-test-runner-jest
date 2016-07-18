@@ -1,6 +1,5 @@
 {
   "name": "nuclide-test-runner-jest",
-  "_main": "./main.coffee",
   "main": "./JestTestRunner.js",
   "version": "0.0.0",
   "description": "Jest Test Runner for nuclide-test-runner",
@@ -13,7 +12,7 @@
   ],
   "providedServices": {
     "nuclide-test-runner.provider": {
-      "description": "Jest Test Runner",
+      "description": "Jest Test Runner for Nuclide",
       "versions": {
         "0.0.0": "provideTestRunner"
       }
@@ -21,5 +20,8 @@
   },
   "engines": {
     "atom": ">=1.0.0 <2.0.0"
+  },
+  "dependencies": {
+    "recursive-readdir": "^2.0.0"
   }
 }

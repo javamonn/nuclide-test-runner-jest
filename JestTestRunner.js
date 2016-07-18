@@ -2,17 +2,14 @@
 
 /* @flow */
 
-/*
-TODO:
-if current file is a jest test, pass it as param
-send each test result
-send close event
-*/
+
 
 const spawn = require('child_process').spawn;
 const path = require('path');
 const xatom = require('atom'); // atom is already globally defined
 const Emitter = xatom.Emitter;
+const recursiveReaddir = require('recursive-readdir');
+
 
 
 const PASSED  = 1;
@@ -32,84 +29,54 @@ function statusNumFromString(s) {
 
 
 
-/**
- * Jest runner for nuclide-test-runner
- * based on https://github.com/facebook/nuclide/blob/v0.0.32/pkg/nuclide/test-runner/example/TestRunnerInterface.js
- * and on https://github.com/klorenz/nuclide-test-runner-pytest
- *
- * jest --verbose --noHighlight
- * jest --json
- */
+const allowedExts = ['js', 'jsx'];
 
-/*
- export type TestClassSummary = {
-   className : string;
-   fileName  : string;
-   id        : number;
-   name      : string;
- };
+function parseFile(f) {
+  const fn = f.split('/').pop();
+  const ext = fn.split('.').pop();
+  return {
+    path : f,
+    fn   : fn,
+    ext  : ext
+  };
+}
 
- export type TestRunInfo = {
-   details       : string;
-   durationSecs  : number;
-   endedTime     : number;
-   name          : string;
-   numAssertions : number;
-   numFailures   : number;
-   numMethods    : number;
-   numSkipped    : number;
-   status        : number;
-   summary       : string;
-   test_json     : TestClassSummary;
- };
-*/
+function itemInArr(item, arr) {
+  return arr.indexOf(item) !== -1;
+}
+
+function ignoreFileCriteria(file, stats) {
+  if (stats.isDirectory()) { return false; }
+  const ext = parseFile(file).ext;
+  const validExt = itemInArr(ext, allowedExts);
+  return !validExt;
+}
+
+function ignoreFileCriteriaWithRegex(rgx) {
+  return function(file, stats) {
+    if (stats.isDirectory()) { return false; }
+    const matches = (rgx === file);
+    return !matches;
+  }
+}
+
 
 
 const TESTRUNS = {};
 let runId = 0;
 
-/**
- * Objects returned from `getByUri` should implement the functions outlined in this interface. The
- * runner is reponsible for handling request/run IDs.
- */
+
+
 class JestTestRunner {
 
-  constructor(uri) {
+  constructor(uri, jestFile) {
     this.uri = uri;
+    this.jestFile = jestFile;
     this.emitter = new Emitter();
+    this.testsDir = uri + '/__tests__';
   }
 
-  /**
-   * Calls `callback` when testing process is successfully spawned.
-   *
-   * @returns a `Disposable` on which `dispose` can be called to stop listening to this event.
-   */
-  onDidStart(cb) {
-    setTimeout(function() { cb(runId); }, 100);
-
-    return this.emitter.on('did-start', cb);
-  }
-
-  // summary: {runId: number; summaryInfo: Array<TestClassSummary>;})
-  
-  /**
-   * Calls `callback` when an unhandled error occurs with the testing process. Further output from
-   * the testing process is ignored after an error event.
-   */
-  onError(cb) {
-    // callback({runId:100, error:{}})
-    return this.emitter.on('error', cb);
-  }
-
-  /**
-   * Runs tests for `path`.
-   *
-   * Resolves to the ID assigned to this test run that will be returned in all events that
-   * originate from this test run to enable the client to associate events with runs.
-   */
-  run(path) {
-    // console.log('run called with', path);
-    
+  run() {
     ++runId;
     
     const TR = {
@@ -118,7 +85,13 @@ class JestTestRunner {
     };
     TESTRUNS[runId] = TR;
     
-    const args = ['--json', '--verbose'];
+    let args = ['--json']; // , 'verbose'];
+    if (this.jestFile) {
+      args.push(this.jestFile);
+    }
+    
+    this.emitter.emit('stderr', {runId:runId, data: `> jest ${args.join(' ')}` });
+    
     TR.currentProcess = jest = spawn('node_modules/.bin/jest', args, {cwd: this.uri});
     
     const summaryInfo = [];
@@ -171,18 +144,6 @@ class JestTestRunner {
       this.finallyFn(runId);
     });  
   }
-
-  /**
-   * Stops the test run with `runId`.
-   *
-   * Resolves to `true` if the given test run ID was found and signalled to stop, otherwise `false`.
-   */
-  stop(runId) {
-    console.log('STOP CALLED?', runId);
-    return new Promise((resolve, reject) => {
-      resolve(true);
-    });
-  }
   
   do(fn) {
     this.doFn = fn;
@@ -204,7 +165,29 @@ class JestTestRunner {
     this.emitter.on('stdout',   (m) => { m.kind = 'stdout';   this.doFn(m); } ); // ?
     this.emitter.on('stderr',   (m) => { m.kind = 'stderr';   this.doFn(m); } );
     
-    setTimeout(() => { this.run(this.uri); }, 0);
+    setTimeout(() => { this.run(); }, 0);
+    
+    
+    
+    const ignoreFn = ( this.jestFile ? ignoreFileCriteriaWithRegex(this.jestFile) : ignoreFileCriteria );
+    
+    recursiveReaddir(this.testsDir, [ignoreFn], (err, files) => {
+      if (!err) {
+        const summaryInfo = files.map((f) => {
+          const o = parseFile(f);
+          return {
+            fileName  : f,
+            id        : f,
+            classname : o.fn,
+            name      : f.substring( this.testsDir.length + 1)
+          };
+        });
+        
+        // console.log('summaryInfo', summaryInfo);
+        
+        this.emitter.emit('summary', {runId:runId, summaryInfo:summaryInfo});
+      }
+    });
     
     return this;
   }
@@ -227,25 +210,36 @@ module.exports = {
       label: 'Jest',
       runTest: (uri) => {
         // console.log(`request test runner for uri ${uri}`);
+        
         basepath = null;
         
-        // console.log('atom', atom);
+        // console.log('atom', atom); // to inspect atom info at this point
+        
+        let jestFile = '';
+        
+        // TODO: how to know the currently opened file out of the loaded buffers?!
+        
+        atom.project.buffers.forEach((b) => {
+          const p = b.file.path;
+          const isTest = (p.indexOf('/__tests__/') !== -1);
+          if (isTest) {
+            jestFile = p;
+          }
+        });
         
         atom.project.getPaths().forEach(p => {
           if (!path.relative(p, uri).match(/^\.\./)) {
             basepath = p;
           }
         });
-        
-        // console.log('basepath is now', basepath);
 
         if (basepath == null) {
           return null;
         }
 
-        console.log(`JEST CALLED ON ${basepath}`);
+        // console.log(`Jest called with basepath: "${basepath}" and jestFile: "${jestFile}"`);
 
-        return new JestTestRunner(basepath);
+        return new JestTestRunner(basepath, jestFile);
       }
     };
   }
