@@ -10,6 +10,15 @@
     "Nuclide",
     "JavaScript"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/JosePedroDias/nuclide-test-runner-jest.git"
+  },
+  "author": {
+    "name" : "José Pedro Dias",
+    "email" : "jose.pedro.dias@gmail.com",
+    "url" : "http://josepedrodias.com/"
+  },
   "providedServices": {
     "nuclide-test-runner.provider": {
       "description": "Jest Test Runner for Nuclide",
