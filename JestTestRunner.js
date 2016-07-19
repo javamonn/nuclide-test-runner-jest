@@ -45,6 +45,10 @@ function itemInArr(item, arr) {
   return arr.indexOf(item) !== -1;
 }
 
+function pathOfAllowedExt(path) {
+  return itemInArr(parseFile(path).ext, allowedExts);
+}
+
 function ignoreFileCriteria(file, stats) {
   if (stats.isDirectory()) { return false; }
   const ext = parseFile(file).ext;
@@ -110,7 +114,7 @@ class JestTestRunner {
     jest.stdout.on('error', (error) => {
       // console.log("error", error);
       this.emit('error', {runId:runId, error:error});
-      this.finallyFn(runId);
+      // this.finallyFn(runId);
     });
     
     jest.stdout.on('close', (code) => {
@@ -125,7 +129,8 @@ class JestTestRunner {
         this.emitter.emit('run-test', {
           runId: runId,
           testInfo: {
-            details      : tr.message || 'MESSAGE',
+            //details      : tr.message ? 'Runtime error on test module' : 'Test module did run',
+            //details      : tr.message ? `Test ${tr.name} failed` : `Test ${tr.name} passed`,
             durationSecs : (tr.endTime - tr.startTime) / 1000,
             endedTime    : tr.endTime,
             name         : tr.name,
@@ -208,27 +213,19 @@ module.exports = {
   provideTestRunner: (service) => {
     return {
       label: 'Jest',
-      runTest: (uri) => {
-        // console.log(`request test runner for uri ${uri}`);
+      runTest: (openedFilePath) => {
+        // console.log(`request test runner for openedFilePath ${openedFilePath}`);
         
         basepath = null;
         
-        // console.log('atom', atom); // to inspect atom info at this point
-        
         let jestFile = '';
         
-        // TODO: how to know the currently opened file out of the loaded buffers?!
-        
-        atom.project.buffers.forEach((b) => {
-          const p = b.file.path;
-          const isTest = (p.indexOf('/__tests__/') !== -1);
-          if (isTest) {
-            jestFile = p;
-          }
-        });
+        if (itemInArr('/__tests__/', openedFilePath) && pathOfAllowedExt(openedFilePath)) {
+          jestFile = openedFilePath;
+        }
         
         atom.project.getPaths().forEach(p => {
-          if (!path.relative(p, uri).match(/^\.\./)) {
+          if (!path.relative(p, openedFilePath).match(/^\.\./)) {
             basepath = p;
           }
         });
